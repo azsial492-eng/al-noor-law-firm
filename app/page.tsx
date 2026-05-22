@@ -16,6 +16,7 @@ import {
   promptAndroidInstall,
   setupInstallPrompt,
 } from "../utils/installApp";
+import DocumentScanner from "../components/DocumentScanner";
 
 export default function AlNoorApp() {
   const [showSplash, setShowSplash] = useState(true);
@@ -38,6 +39,7 @@ export default function AlNoorApp() {
   const [isDocViewerOpen, setIsDocViewerOpen] = useState(false);
   const [selectedVaultCaseId, setSelectedVaultCaseId] = useState<string | null>(null);
   const [documents, setDocuments] = useState<any[]>([]);
+  const [scannerCaseId, setScannerCaseId] = useState("");
 
   // Form Inputs
   const [selectedCaseId, setSelectedCaseId] = useState("");
@@ -794,7 +796,13 @@ export default function AlNoorApp() {
             <div className="bg-white rounded-xl shadow-sm p-6">
               <div className="flex justify-between items-center border-b pb-3 mb-6">
                 <h3 className="text-lg font-serif text-[#0A192F]">Case Files & Evidence</h3>
-                <button onClick={() => setIsScannerOpen(true)} className="bg-[#0A192F] text-[#e9c176] px-4 py-2 font-bold rounded shadow-md hover:bg-[#112a4f]">
+                <button
+                  onClick={() => {
+                    setScannerCaseId(selectedVaultCaseId || "");
+                    setIsScannerOpen(true);
+                  }}
+                  className="bg-[#0A192F] text-[#e9c176] px-4 py-2 font-bold rounded shadow-md hover:bg-[#112a4f]"
+                >
                   📷 Scan Document
                 </button>
               </div>
@@ -932,6 +940,16 @@ export default function AlNoorApp() {
               <h2 className="font-serif text-base md:text-xl truncate flex-1">
                 {cases.find((c) => c.id === selectedVaultCaseId)?.case_title || "Case"} — Documents
               </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setScannerCaseId(selectedVaultCaseId || "");
+                  setIsScannerOpen(true);
+                }}
+                className="shrink-0 text-xs bg-[#e9c176] text-[#0A192F] px-3 py-1.5 rounded font-semibold"
+              >
+                + Scan
+              </button>
             </div>
             <div className="flex-1 p-6 bg-gray-100 overflow-y-auto">
               {documents.length === 0 ? (
@@ -943,8 +961,13 @@ export default function AlNoorApp() {
               ) : (
                 <ul className="space-y-3">
                   {documents.map((doc) => (
-                    <li key={doc.id} className="bg-white rounded-lg border border-gray-200 p-4 flex justify-between items-center gap-4">
-                      <div className="min-w-0">
+                    <li key={doc.id} className="bg-white rounded-lg border border-gray-200 p-4 flex justify-between items-start gap-4">
+                      <div className="min-w-0 flex-1">
+                        {doc.file_url && (
+                          <a href={doc.file_url} target="_blank" rel="noopener noreferrer" className="block mb-2">
+                            <img src={doc.file_url} alt={doc.file_name} className="max-h-40 rounded border border-gray-200 object-contain" />
+                          </a>
+                        )}
                         <p className="font-semibold text-[#0A192F] truncate">{doc.file_name}</p>
                         {doc.created_at && (
                           <p className="text-xs text-gray-500 mt-1">
@@ -969,27 +992,16 @@ export default function AlNoorApp() {
         </div>
       )}
 
-      {/* Mobile Scanner Modal */}
       {isScannerOpen && (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col">
-          <div className="p-4 md:p-6 flex items-center gap-3 text-white">
-            <button type="button" onClick={() => setIsScannerOpen(false)} className="font-semibold text-[#e9c176] flex items-center gap-1 shrink-0">
-              ← Back
-            </button>
-            <span className="text-lg md:text-xl font-serif text-[#e9c176] truncate">Document Scanner</span>
-          </div>
-          <div className="flex-1 flex items-center justify-center">
-            <div className="w-[80%] h-[60vh] border border-[#e9c176]/40 relative">
-              <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-[#e9c176] -ml-1 -mt-1"></div>
-              <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-[#e9c176] -mr-1 -mt-1"></div>
-              <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-[#e9c176] -ml-1 -mb-1"></div>
-              <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-[#e9c176] -mr-1 -mb-1"></div>
-            </div>
-          </div>
-          <div className="p-8 pb-12 flex justify-center bg-black/90">
-            <button onClick={() => setIsScannerOpen(false)} className="w-20 h-20 rounded-full bg-white border-8 border-gray-400 focus:bg-[#e9c176] transition-colors"></button>
-          </div>
-        </div>
+        <DocumentScanner
+          cases={cases}
+          defaultCaseId={scannerCaseId || selectedVaultCaseId || ""}
+          onClose={() => setIsScannerOpen(false)}
+          onSaved={() => {
+            fetchDashboardData();
+            if (selectedVaultCaseId) fetchDocumentsForCase(selectedVaultCaseId);
+          }}
+        />
       )}
 
     </div>
