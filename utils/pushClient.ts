@@ -78,8 +78,4 @@ export function isPushEnabledLocally() {
   return localStorage.getItem("alnoor_push_enabled") === "1";
 }
 
-export async function tryAutoMorningReminder() {
-  if (!isPushEnabledLocally()) return;
-  if (Notification.permission !== "granted") return;
-  await sendTomorrowNotification(false);
-}
+/** Reminders are sent daily at 6 PM PKT via Vercel Cron — see /api/notifications/cron */

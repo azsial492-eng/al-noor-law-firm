@@ -7,7 +7,6 @@ import {
   isPushEnabledLocally,
   registerServiceWorker,
   sendTomorrowNotification,
-  tryAutoMorningReminder,
 } from "../utils/pushClient";
 import {
   canInstallPwa,
@@ -75,7 +74,6 @@ export default function AlNoorApp() {
     if (showSplash) return;
     setPushEnabled(isPushEnabledLocally());
     registerServiceWorker();
-    tryAutoMorningReminder();
     if (canInstallPwa()) setShowInstallBanner(true);
     return setupInstallPrompt(() => setAndroidInstallReady(true));
   }, [showSplash]);
@@ -155,6 +153,46 @@ export default function AlNoorApp() {
   const goToAddCase = () => {
     setActiveTab("clients");
     setClientsFocus("case");
+  };
+
+  const canGoBack =
+    isDocViewerOpen ||
+    isScannerOpen ||
+    isScheduleModalOpen ||
+    isTaskModalOpen ||
+    !!clientsFocus ||
+    activeTab !== "dashboard";
+
+  const handleBack = () => {
+    if (isDocViewerOpen) {
+      closeDocViewer();
+      return;
+    }
+    if (isScannerOpen) {
+      setIsScannerOpen(false);
+      return;
+    }
+    if (isScheduleModalOpen) {
+      setIsScheduleModalOpen(false);
+      return;
+    }
+    if (isTaskModalOpen) {
+      setIsTaskModalOpen(false);
+      return;
+    }
+    if (clientsFocus) {
+      setClientsFocus(null);
+      return;
+    }
+    if (activeTab !== "dashboard") {
+      setActiveTab("dashboard");
+      setClientsFocus(null);
+    }
+  };
+
+  const navigateTab = (tab: "dashboard" | "clients" | "vault") => {
+    setActiveTab(tab);
+    if (tab !== "clients") setClientsFocus(null);
   };
 
   const handleEnableNotifications = async () => {
@@ -406,7 +444,7 @@ export default function AlNoorApp() {
       </aside>
 
       {/* ====== MAIN CONTENT ====== */}
-      <main className="flex-1 flex flex-col h-full overflow-y-auto">
+      <main className="flex-1 flex flex-col h-full overflow-y-auto pb-20 md:pb-0">
 
         {showInstallBanner && !isStandaloneApp() && (
           <div className="bg-[#0A192F] text-white px-4 py-3 flex flex-wrap items-start gap-3 justify-between border-b border-[#e9c176]/30">
@@ -437,9 +475,22 @@ export default function AlNoorApp() {
         )}
         
         {/* Header */}
-        <header className="bg-white p-6 shadow-sm flex flex-wrap justify-between items-center gap-3 sticky top-0 z-0">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-serif text-[#0A192F] capitalize">{activeTab.replace('-', ' ')}</h1>
+        <header className="bg-white p-4 md:p-6 shadow-sm flex flex-wrap justify-between items-center gap-3 sticky top-0 z-10">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+            {canGoBack && (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="shrink-0 flex items-center gap-1 text-[#0A192F] font-semibold text-sm md:text-base px-2 py-1.5 rounded-lg hover:bg-gray-100 active:bg-gray-200"
+                aria-label="Go back"
+              >
+                <span className="text-xl leading-none">←</span>
+                <span className="hidden sm:inline">Back</span>
+              </button>
+            )}
+            <h1 className="text-xl md:text-2xl font-serif text-[#0A192F] capitalize truncate">
+              {clientsFocus === "client" ? "Add Client" : clientsFocus === "case" ? "Add Case" : activeTab.replace("-", " ")}
+            </h1>
             <span className={`md:hidden flex items-center gap-1 text-xs ${isLive ? "text-green-600" : "text-gray-400"}`}>
               <span className={`w-2 h-2 rounded-full ${isLive ? "bg-green-500 animate-pulse" : "bg-gray-400"}`} />
               Live
@@ -768,8 +819,13 @@ export default function AlNoorApp() {
       {/* Add Task Modal */}
       {isTaskModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 className="text-2xl font-serif text-[#0A192F] mb-6">Add Task</h2>
+          <div className="bg-white p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <button type="button" onClick={() => setIsTaskModalOpen(false)} className="text-[#0A192F] font-semibold flex items-center gap-1 shrink-0">
+                ← Back
+              </button>
+              <h2 className="text-xl md:text-2xl font-serif text-[#0A192F]">Add Task</h2>
+            </div>
             <form onSubmit={handleAddTask} className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Task Title</label>
@@ -799,11 +855,43 @@ export default function AlNoorApp() {
         </div>
       )}
 
+      {/* Mobile bottom navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#0A192F] border-t border-[#e9c176]/30 z-30 pb-[env(safe-area-inset-bottom)]">
+        <div className="grid grid-cols-3">
+          {(
+            [
+              { id: "dashboard" as const, label: "Dashboard", icon: "🏠" },
+              { id: "clients" as const, label: "Clients", icon: "👥" },
+              { id: "vault" as const, label: "Vault", icon: "📁" },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => navigateTab(tab.id)}
+              className={`flex flex-col items-center py-3 px-2 transition ${
+                activeTab === tab.id && !clientsFocus && !isDocViewerOpen
+                  ? "text-[#e9c176] bg-[#112a4f]"
+                  : "text-gray-400"
+              }`}
+            >
+              <span className="text-xl">{tab.icon}</span>
+              <span className="text-[10px] font-semibold mt-0.5">{tab.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
       {/* Schedule Hearing Modal */}
       {isScheduleModalOpen && (
         <div className="fixed inset-0 bg-black/60 flex justify-center items-center z-50 p-4">
-          <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md">
-            <h2 className="text-2xl font-serif text-[#0A192F] mb-6">Schedule Hearing</h2>
+          <div className="bg-white p-6 md:p-8 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <button type="button" onClick={() => setIsScheduleModalOpen(false)} className="text-[#0A192F] font-semibold flex items-center gap-1 shrink-0">
+                ← Back
+              </button>
+              <h2 className="text-xl md:text-2xl font-serif text-[#0A192F]">Schedule Hearing</h2>
+            </div>
             <form onSubmit={handleScheduleHearing} className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Select Case</label>
@@ -835,13 +923,15 @@ export default function AlNoorApp() {
 
       {/* Document Viewer Modal */}
       {isDocViewerOpen && (
-        <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-8">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="p-4 bg-[#0A192F] text-[#e9c176] flex justify-between items-center">
-              <h2 className="font-serif text-xl">
+        <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-2 md:p-8">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col overflow-hidden">
+            <div className="p-4 bg-[#0A192F] text-[#e9c176] flex items-center gap-3">
+              <button type="button" onClick={closeDocViewer} className="shrink-0 font-semibold text-sm flex items-center gap-1 hover:text-white">
+                ← Back
+              </button>
+              <h2 className="font-serif text-base md:text-xl truncate flex-1">
                 {cases.find((c) => c.id === selectedVaultCaseId)?.case_title || "Case"} — Documents
               </h2>
-              <button onClick={closeDocViewer} className="text-2xl text-white hover:text-red-400">&times;</button>
             </div>
             <div className="flex-1 p-6 bg-gray-100 overflow-y-auto">
               {documents.length === 0 ? (
@@ -882,9 +972,11 @@ export default function AlNoorApp() {
       {/* Mobile Scanner Modal */}
       {isScannerOpen && (
         <div className="fixed inset-0 bg-black z-50 flex flex-col">
-          <div className="p-6 flex justify-between items-center text-white">
-            <span className="text-xl font-serif text-[#e9c176]">Document Scanner</span>
-            <button onClick={() => setIsScannerOpen(false)} className="text-3xl">&times;</button>
+          <div className="p-4 md:p-6 flex items-center gap-3 text-white">
+            <button type="button" onClick={() => setIsScannerOpen(false)} className="font-semibold text-[#e9c176] flex items-center gap-1 shrink-0">
+              ← Back
+            </button>
+            <span className="text-lg md:text-xl font-serif text-[#e9c176] truncate">Document Scanner</span>
           </div>
           <div className="flex-1 flex items-center justify-center">
             <div className="w-[80%] h-[60vh] border border-[#e9c176]/40 relative">
